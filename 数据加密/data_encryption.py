@@ -175,7 +175,10 @@ class DataEncryption(object):
         @classmethod
         def get_digest(cls, source_data):
             digest = SHA.new()
-            digest.update(source_data)
+            try:
+                digest.update(source_data.encode("utf-8"))
+            except AttributeError:
+                digest.update(source_data)
 
             return digest
 
@@ -206,14 +209,14 @@ class DataEncryption(object):
                 pri_pem_save_path = pem_save_path + "_private.pem"
                 pub_pem_save_path = pem_save_path + "_public.pem"
                 with open(pri_pem_save_path, "w") as f_pri, open(pub_pem_save_path, "w") as f_pub:
-                    f_pub.write(public_pem)
-                    f_pri.write(private_pem)
+                    f_pub.write(public_pem.decode("utf-8"))
+                    f_pri.write(private_pem.decode("utf-8"))
                     print("Secret key generate successed."
                                 "Save as:\n{0}\n{1}".format(pub_pem_save_path, pri_pem_save_path))
 
             return public_pem, private_pem
 
-        def data_encryption_signer(self, source_data, pri_key, pub_key):
+        def data_encryption_signer(self, source_data, pub_key, pri_key=None):
             """
             加密数据、签名数据
             :param source_data: 待加密数据
@@ -221,25 +224,30 @@ class DataEncryption(object):
             :param pub_key: 公钥，用于加密
             :return: 加密的数据，数据的签名
             """
-            encrypted_data = ""
-            data_signature = ""
+            encrypted_data = b""
+            data_signature = b""
+            signer = None
+
             cipher, pub_key_length = self.get_cipher(pub_key)
-            signer, pri_key_length = self.get_ras_signer(pri_key)
-            if pub_key_length != pri_key_length:
-                raise RSAKeyLengthError(pub_key_length, pri_key_length)
+            if pri_key is not None:
+                signer, pri_key_length = self.get_ras_signer(pri_key)
+
+                if pub_key_length != pri_key_length:
+                    raise RSAKeyLengthError(pub_key_length, pri_key_length)
 
             key_length = pub_key_length
-            data_limit_len = key_length / 8 - 11
+            data_limit_len = int(key_length / 8 - 11)
             source_data_len = len(source_data)
 
-            for i in range(source_data_len / data_limit_len + 1):
+            for i in range(int(source_data_len / data_limit_len) + 1):
                 piece_data = source_data[i * data_limit_len: (i + 1) * data_limit_len]
-                encrypted_data += cipher.encrypt(piece_data)
+                encrypted_data += cipher.encrypt(piece_data.encode("utf-8"))
 
-                digest = DataEncryption.AsymmetricEncryption.get_digest(piece_data)
-                data_signature += signer.sign(digest)
+                if pri_key is not None:
+                    digest = DataEncryption.AsymmetricEncryption.get_digest(piece_data)
+                    data_signature += signer.sign(digest)
 
-            return encrypted_data, data_signature
+            return encrypted_data, data_signature if len(data_signature) == 0 else None
 
         def signature_verify(self, decrypted_data, data_signature, pub_or_pri_key):
             """
@@ -250,13 +258,13 @@ class DataEncryption(object):
             :return: True or False
             """
             signer, secret_key_len = self.get_ras_signer(pub_or_pri_key=pub_or_pri_key)
-            data_limit_len = secret_key_len / 8 - 11
+            data_limit_len = int(secret_key_len / 8 - 11)
             data_len = len(decrypted_data)
 
-            sig_limit_len = secret_key_len / 8
+            sig_limit_len = int(secret_key_len / 8)
             is_verify = True
 
-            for i in range(data_len / data_limit_len + 1):
+            for i in range(int(data_len / data_limit_len) + 1):
                 piece_data = decrypted_data[i * data_limit_len: (i + 1) * data_limit_len]
                 piece_sig = data_signature[i * sig_limit_len: (i + 1) * sig_limit_len]
 
@@ -274,11 +282,11 @@ class DataEncryption(object):
             :param pri_key: 私钥
             :return: 解密的数据
             """
-            decrypted_data = ""
+            decrypted_data = b""
             cipher, private_key_len = DataEncryption.AsymmetricEncryption.get_cipher(pri_key)
             # 密钥长度对应密文的长度
-            enc_data_piece_len = private_key_len / 8
-            iterations = len(encrypted_data) / enc_data_piece_len
+            enc_data_piece_len = int(private_key_len / 8)
+            iterations = int(len(encrypted_data) / enc_data_piece_len)
 
             for i in range(iterations):
                 piece_data = encrypted_data[i * enc_data_piece_len: (i + 1) * enc_data_piece_len]
@@ -289,13 +297,14 @@ class DataEncryption(object):
 
 
 if __name__ == '__main__':
-    s = "123456789hiothio1" * 1024
+    s = "123456789hfsfsdfsd1" * 1024
     print("len(s): {0}".format(len(s)))
     obj = DataEncryption.AsymmetricEncryption()
-    public_key, private_key = obj.generate_secret_key(pem_save_path=".", length=1024)
-    data, sig = obj.data_encryption_signer(source_data=s, pri_key=private_key, pub_key=public_key)
+    public_key, private_key = obj.generate_secret_key(length=1024)
+    # data, sig = obj.data_encryption_signer(source_data=s, pri_key=private_key, pub_key=public_key)
+    data, sig = obj.data_encryption_signer(source_data=s, pub_key=public_key)
     print("len(sig): {0}".format(len(sig)))
     d_data = obj.decrypt(data, private_key)
     print(d_data)
-    is_v = obj.signature_verify(d_data, sig, private_key)
-    print(is_v)
+    # is_v = obj.signature_verify(d_data, sig, private_key)
+    # print(is_v)
