@@ -6,8 +6,6 @@ from Crypto.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
 from Crypto.Signature import PKCS1_v1_5 as Signature_pkcs1_v1_5
 from Crypto.PublicKey import RSA
 
-from gateway.utils.logger import logger
-
 
 class SecretError(Exception):
     def __str__(self):
@@ -55,7 +53,7 @@ class DataEncryption(object):
         :return:
         """
         if len(secret) > 32:
-            logger.warn("The secret key length more than 32. It will be truncate")
+            print("The secret key length more than 32. It will be truncate")
             secret = secret[:32]
 
         if pad_str is None:
@@ -80,7 +78,7 @@ class DataEncryption(object):
     @classmethod
     def type_check(cls, source_data):
         if not isinstance(source_data, str):
-            logger.warn("The source data is not string. repr function will processed it.")
+            print("The source data is not string. repr function will processed it.")
             source_data = repr(source_data)
 
         return source_data
@@ -106,7 +104,6 @@ class DataEncryption(object):
 
         # 待加密数据长度不是16的倍数则补充 "\0"，`注意不是空格`
         source_data += (16 - len(source_data) % 16) * "\0"
-        # logger.info("{0}, {1}".format(len(source_data), source_data))
         cipher = AES.new(processed_secret)
         secret_data = cipher.encrypt(source_data)
 
@@ -145,12 +142,12 @@ class DataEncryption(object):
         def __key_length_check(self):
             if self.__key_length < 1024:
                 self.__key_length = 1024
-                logger.warn("RSA modulus length < 1024. It will be reset with 1024")
+                print("RSA modulus length < 1024. It will be reset with 1024")
                 return
 
             if self.__key_length % 256 != 0:
                 self.__key_length = (int(self.__key_length / 256) + 1) * 256
-                logger.warn("RSA modulus length must be a multiple of 256."
+                print("RSA modulus length must be a multiple of 256."
                             " It will be reset with {0}".format(self.__key_length))
 
         def __set_key_length(self, length):
@@ -211,7 +208,7 @@ class DataEncryption(object):
                 with open(pri_pem_save_path, "w") as f_pri, open(pub_pem_save_path, "w") as f_pub:
                     f_pub.write(public_pem)
                     f_pri.write(private_pem)
-                    logger.info("Secret key generate successed."
+                    print("Secret key generate successed."
                                 "Save as:\n{0}\n{1}".format(pub_pem_save_path, pri_pem_save_path))
 
             return public_pem, private_pem
@@ -293,21 +290,12 @@ class DataEncryption(object):
 
 if __name__ == '__main__':
     s = "123456789hiothio1" * 1024
-    logger.info("len(s): {0}".format(len(s)))
-    # sec = "1236547890123456"
-    # s1 = DataEncryption.aes_symmetric_encryption(s, sec)
-    # logger.info(DataEncryption.aes_symmetric_decryption(s1, sec))
+    print("len(s): {0}".format(len(s)))
     obj = DataEncryption.AsymmetricEncryption()
-    public_key, private_key = obj.generate_secret_key(length=1024)
+    public_key, private_key = obj.generate_secret_key(pem_save_path=".", length=1024)
     data, sig = obj.data_encryption_signer(source_data=s, pri_key=private_key, pub_key=public_key)
-    logger.info("len(sig): {0}".format(len(sig)))
+    print("len(sig): {0}".format(len(sig)))
     d_data = obj.decrypt(data, private_key)
-    logger.info(d_data)
+    print(d_data)
     is_v = obj.signature_verify(d_data, sig, private_key)
-    logger.info(is_v)
-    # file_ = open("b.txt", "r")
-    # str1 = file_.read()
-    # from data_compress import DataCompress
-    # str2 = DataCompress.zlib_decompression(str1)
-    str3 = DataEncryption.aes_symmetric_decryption(str2, "1234556", "hiot")
-    # logger.info(str3)
+    print(is_v)
