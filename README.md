@@ -20,3 +20,16 @@ data, sig = obj.data_encryption_signer(source_data=s, pub_key=public_key)
 ```
 d_data = obj.decrypt(data, private_key)
 ```
+
+## Hzero 国际化抽取工具
+依赖pandas版本0.24.2
+
+使用方法：将脚本文件拷贝到需要抽取国际化的目录下执行即可
+
+get_intl_all.py: 抽取所有的国际化
+
+get_intl_for_standard.py: 抽取标准的国际化配置，将忽略hzero.common开头的国际化配置
+
+<img alt="standard" title="standard" src="images/standard.png" />
+<br />
+<img alt="all" title="all" src="images/all.png" />
